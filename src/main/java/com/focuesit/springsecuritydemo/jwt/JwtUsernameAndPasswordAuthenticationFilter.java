@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Date;
 import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,7 +30,7 @@ public class JwtUsernameAndPasswordAuthenticationFilter extends UsernamePassword
       final UsernameAndPasswordAuthenticationRequest authenticationRequest = new ObjectMapper()
           .readValue(request.getInputStream(), UsernameAndPasswordAuthenticationRequest.class);
       Authentication authentication = new UsernamePasswordAuthenticationToken(
-          authenticationRequest.getUserName(),
+          authenticationRequest.getUsername(),
           authenticationRequest.getPassword()
       );
       return authenticationManager.authenticate(authentication);
@@ -41,21 +40,17 @@ public class JwtUsernameAndPasswordAuthenticationFilter extends UsernamePassword
   }
 
   @Override
-  protected void successfulAuthentication(
-      HttpServletRequest request,
-      HttpServletResponse response,
-      FilterChain chain,
-      Authentication authResult
-  ) throws IOException, ServletException {
+  protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+      Authentication authResult) {
 
-    final String key = "securesecuresecuresecure";
+    final String key = "securesecuresecuresecuresecuresecuresecuresecuresecuresecuresecuresecure";
     final String token = Jwts.builder()
         .setSubject(authResult.getName())
-        .claim("authoritis", authResult.getAuthorities())
+        .claim("authorities", authResult.getAuthorities())
         .setIssuedAt(new Date())
         .setExpiration(java.sql.Date.valueOf(LocalDate.now().plusWeeks(2)))
         .signWith(Keys.hmacShaKeyFor(key.getBytes()))
         .compact();
-    response.addHeader("Authorization", token);
+    response.addHeader("Authorization", "Bearer " + token);
   }
 }
