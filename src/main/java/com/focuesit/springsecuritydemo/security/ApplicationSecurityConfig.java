@@ -3,9 +3,11 @@ package com.focuesit.springsecuritydemo.security;
 import static com.focuesit.springsecuritydemo.security.ApplicationUserRole.STUDENT;
 
 import com.focuesit.springsecuritydemo.auth.ApplicationUserService;
+import com.focuesit.springsecuritydemo.jwt.JwtConfig;
 import com.focuesit.springsecuritydemo.jwt.JwtTokenVerifier;
 import com.focuesit.springsecuritydemo.jwt.JwtUsernameAndPasswordAuthenticationFilter;
-import java.util.concurrent.TimeUnit;
+import javax.crypto.SecretKey;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -16,29 +18,41 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
+@EnableConfigurationProperties
 public class ApplicationSecurityConfig extends WebSecurityConfigurerAdapter {
 
   private final PasswordEncoder passwordEncoder;
   private final ApplicationUserService applicationUserService;
 
-  public ApplicationSecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService) {
+  private final JwtConfig jwtConfig;
+  private final SecretKey secretKey;
+
+  public ApplicationSecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService,
+      JwtConfig jwtConfig, SecretKey secretKey) {
     this.passwordEncoder = passwordEncoder;
     this.applicationUserService = applicationUserService;
+    this.jwtConfig = jwtConfig;
+    this.secretKey = secretKey;
   }
 
   @Override
   protected void configure(HttpSecurity http) throws Exception {
     http
         .csrf().disable()
+        // Because we are using JWT then we need to make sure that the authentication is stateless
+        // The session will not stores in the db anymore
         .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         .and()
-        .addFilter(new JwtUsernameAndPasswordAuthenticationFilter(authenticationManager()))
-        .addFilterAfter(new JwtTokenVerifier(), JwtUsernameAndPasswordAuthenticationFilter.class)
+        //add filter to the filter chain for the JWT
+        //add the authenticationManager() that we inherent form WebSecurityConfigurerAdapter
+        // Add filter 1 authenticate the user - when he wants to login
+        .addFilter(new JwtUsernameAndPasswordAuthenticationFilter(authenticationManager(), jwtConfig, secretKey))
+        // Add filter 2 verify the user after each req
+        .addFilterAfter(new JwtTokenVerifier(jwtConfig, secretKey), JwtUsernameAndPasswordAuthenticationFilter.class)
         .authorizeRequests()
         .antMatchers("/", "index", "/css/*", "/js/*").permitAll()
         .antMatchers("/api/**").hasRole(STUDENT.name())
